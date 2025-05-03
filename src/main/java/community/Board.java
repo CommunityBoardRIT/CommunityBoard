@@ -23,6 +23,10 @@ public class Board {
         listenerFactory = new ListenerFactory();
         serverFactory.addListener("default", listenerFactory.createListener());
 
+        // We should use JSON to hold configurations like FTP root file and user.properties path
+        // The executable should require an argument for the path of the config file
+        // Default config path should be in the root of the project
+        // Should include checking if the users.properties file exists; currently throws error
         PropertiesUserManagerFactory userManagerFactory = new PropertiesUserManagerFactory();
         userManagerFactory.setFile(new java.io.File("users.properties"));
         userManager = userManagerFactory.createUserManager();
