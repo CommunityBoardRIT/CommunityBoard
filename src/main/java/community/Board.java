@@ -1,5 +1,7 @@
 package community;
 
+import com.fasterxml.jackson.core.exc.StreamReadException;
+import com.fasterxml.jackson.databind.DatabindException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import community.json.FileConfig;
 import org.apache.ftpserver.FtpServer;
@@ -27,18 +29,18 @@ public class Board {
     ListenerFactory listenerFactory;
     UserManager userManager;
 
+    List<Group> groupCache;
+
     String rootDirectory;
 
+    public ObjectMapper objectMapper;
     String userPropertiesPath;
     public Board() throws FtpException {
+        groupCache = new ArrayList<>();
+        objectMapper = new ObjectMapper();
         FtpServerFactory serverFactory = new FtpServerFactory();
         listenerFactory = new ListenerFactory();
         serverFactory.addListener("default", listenerFactory.createListener());
-
-        // We should use JSON to hold configurations like FTP root file and user.properties path
-        // The executable should require an argument for the path of the config file
-        // Default config path should be in the root of the project
-        // Should include checking if the users.properties file exists; currently throws error
 
         // check for config file
         String content;
@@ -84,6 +86,29 @@ public class Board {
         userManager.save(adminUser);
         System.out.println("Admin account created successfully: " + user + ":" + password);
     }
+
+    public void createGroup(String name, String defaultDirectory, List<Perm> perms){
+        Group group = new Group(name);
+        group.addPermissions(defaultDirectory, perms);
+        group.save();
+        groupCache.add(group);
+    }
+
+    public void loadPermissions(){
+        List <Group> objects;
+        try {
+            objects = objectMapper.readValue(new File("groupConfig.json"),
+                    objectMapper.getTypeFactory().constructCollectionType(List.class, Group.class));
+            objects.forEach(System.out::println);
+        } catch (StreamReadException e) {
+            throw new RuntimeException(e);
+        } catch (DatabindException e) {
+            throw new RuntimeException(e);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+    }
     public void startServer() throws FtpException {
         server.start();
 
@@ -103,6 +128,7 @@ public class Board {
         FileConfig config = new FileConfig(rootDir, userPropsPath);
 
         ObjectMapper mapper = new ObjectMapper();
+
         // save arguments in json file
         try {
             mapper.writerWithDefaultPrettyPrinter().writeValue(new File("config.json"), config);
@@ -133,6 +159,7 @@ public class Board {
         }
 
         Board board = new Board();
+
         board.startServer();
     }
 }
