@@ -3,8 +3,7 @@ package community;
 import org.apache.commons.net.ftp.FTPClient;
 import org.apache.commons.net.ftp.FTPFile;
 
-import java.io.FileInputStream;
-import java.io.IOException;
+import java.io.*;
 import java.util.Scanner;
 
 public class BoardCLI {
@@ -103,7 +102,7 @@ public class BoardCLI {
                     }
                     case "u" -> {
                         if (tokens.length < 3){
-                            System.out.println("Command usage: u {localFilePath} {newFilePath}");
+                            System.out.println("Command usage: u {localFilePath} {remoteFilePath}");
                         }
 
                         else{
@@ -112,6 +111,7 @@ public class BoardCLI {
 
                             System.out.println(localFilePath);
                             System.out.println(fileName);
+
                             try (FileInputStream inputStream = new FileInputStream(localFilePath)) {
                                 boolean uploaded = ftpClient.storeFile(fileName, inputStream);
                                 if (uploaded) {
@@ -125,13 +125,37 @@ public class BoardCLI {
                             }
                         }
                     }
+
+                    case "r" -> {
+                        if (tokens.length < 3){
+                            System.out.println("Command usage: r {remoteFilePath} {localFilePath}");
+                        }
+                        else{
+                            OutputStream outputStream = new BufferedOutputStream(new FileOutputStream(tokens[2]));
+                            boolean success = ftpClient.retrieveFile(tokens[1], outputStream);
+                            outputStream.close();
+
+                            System.out.println(tokens[1]);
+                            System.out.println(tokens[2]);
+
+                            if (success) {
+                                System.out.println("File has been downloaded successfully.");
+                            }
+                            else{
+                                System.out.println("Download failure.");
+                            }
+                        }
+
+                    }
+
                     default -> {
                         System.out.println("Unknown command: " + command);
                         System.out.println("Available commands:");
                         System.out.println("l: list all files in current directory");
                         System.out.println("q: logout and disconnect from the board");
                         System.out.println("cd: navigate to a different directory");
-                        System.out.println("u {localFilePath} {newFilePath}: upload a local file to the board");
+                        System.out.println("u {localFilePath} {remoteFilePath}: upload a local file to the board");
+                        System.out.println("r {remoteFilePath} {localFilePath}: upload a board file to local");
                         System.out.println("m {file directory}: create a file directory");
                         System.out.println("w {file directory}: remove a file directory");
                     }
