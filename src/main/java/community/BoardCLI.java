@@ -1,5 +1,6 @@
 package community;
 
+import org.apache.commons.net.ftp.FTP;
 import org.apache.commons.net.ftp.FTPClient;
 import org.apache.commons.net.ftp.FTPFile;
 import com.google.gson.Gson;
@@ -9,8 +10,12 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Scanner;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class BoardCLI {
     FTPClient ftpClient;
@@ -31,7 +36,28 @@ public class BoardCLI {
             System.out.println("FTP login failed. Try again...");
             return false;
         }
+        ftpClient.enterLocalPassiveMode();
+        try {
+            ftpClient.setFileType(FTP.BINARY_FILE_TYPE);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
         return true;
+    }
+    public static String[] tokenizeCommand(String line) {
+        List<String> tokens = new ArrayList<>();
+        Pattern pattern = Pattern.compile("([^\"\\s]+)|\"([^\"]*)\"");
+        Matcher matcher = pattern.matcher(line);
+        while (matcher.find()) {
+            if (matcher.group(1) != null) {
+                // unquoted
+                tokens.add(matcher.group(1));
+            } else {
+                // strip quotes
+                tokens.add(matcher.group(2));
+            }
+        }
+        return tokens.toArray(new String[0]);
     }
 
     public boolean permission_request(Perm operation){
@@ -98,7 +124,7 @@ public class BoardCLI {
                 if (input.isEmpty()) {
                     continue;
                 }
-                String[] tokens = input.split(" ");
+                String[] tokens = tokenizeCommand(input);
                 String command = tokens[0].toLowerCase();
 
                 switch (command) {
@@ -146,17 +172,16 @@ public class BoardCLI {
                     case "u" -> {
                         if (tokens.length < 3){
                             System.out.println("Command usage: u {localFilePath} {remoteFilePath}");
+                            System.out.println("Example: " + "u \"C:\\Users\\Tristen\\Downloads\\pthreads\" \"pthreads\"");
                         }
 
                         else{
                             String localFilePath = tokens[1];
                             String fileName = tokens[2];
 
-                            System.out.println(localFilePath);
-                            System.out.println(fileName);
-
                             try (FileInputStream inputStream = new FileInputStream(localFilePath)) {
                                 boolean uploaded = ftpClient.storeFile(fileName, inputStream);
+                                System.out.println("REPLY: " + ftpClient.getReplyString());
                                 if (uploaded) {
                                     System.out.println("File uploaded successfully.");
                                 } else {
@@ -172,14 +197,13 @@ public class BoardCLI {
                     case "r" -> {
                         if (tokens.length < 3){
                             System.out.println("Command usage: r {remoteFilePath} {localFilePath}");
+                            System.out.println("Example: " + "\"pthreads\" \"C:\\Users\\Tristen\\Downloads\\pthreads\"");
                         }
                         else{
                             OutputStream outputStream = new BufferedOutputStream(new FileOutputStream(tokens[2]));
                             boolean success = ftpClient.retrieveFile(tokens[1], outputStream);
                             outputStream.close();
 
-                            System.out.println(tokens[1]);
-                            System.out.println(tokens[2]);
 
                             if (success) {
                                 System.out.println("File has been downloaded successfully.");
