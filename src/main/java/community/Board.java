@@ -11,6 +11,7 @@ import community.json.FileConfig;
 import org.apache.ftpserver.FtpServer;
 import org.apache.ftpserver.FtpServerFactory;
 import org.apache.ftpserver.ftplet.Authority;
+import org.apache.ftpserver.command.impl.NOOP;
 import org.apache.ftpserver.ftplet.FtpException;
 import org.apache.ftpserver.ftplet.UserManager;
 import org.apache.ftpserver.listener.ListenerFactory;
@@ -29,6 +30,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
 
+import community.Node.Node;
+
 public class Board {
 
     FtpServer server;
@@ -42,6 +45,8 @@ public class Board {
     public ObjectMapper objectMapper;
     String userPropertiesPath;
     PermissionService permissionService;
+    Node node;
+
     public Board() throws FtpException {
         groupCache = new ArrayList<>();
         objectMapper = new ObjectMapper();
@@ -86,6 +91,7 @@ public class Board {
             throw new RuntimeException(e);
         }
 
+        node = new Node();
     }
 
     private void startPermissionEndpoint(int port) throws IOException {
@@ -157,6 +163,7 @@ public class Board {
     }
     public void startServer() throws FtpException {
         server.start();
+        node.start();
 
         System.out.println("FTP Server started on port " + listenerFactory.getPort());
     }
