@@ -2,7 +2,6 @@ package community.auth;
 
 import community.Group;
 import community.json.PermRequest;
-import org.apache.ftpserver.ftplet.UserManager;
 
 import java.nio.file.Paths;
 import java.util.List;
