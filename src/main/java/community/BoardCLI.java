@@ -6,7 +6,6 @@ import community.auth.Perm;
 import org.apache.commons.net.ftp.FTP;
 import org.apache.commons.net.ftp.FTPClient;
 import org.apache.commons.net.ftp.FTPFile;
-import com.google.gson.Gson;
 
 import java.io.*;
 import java.net.URI;
