@@ -47,7 +47,7 @@ public class BoardCLI {
         try {
             HttpClient client = HttpClient.newHttpClient();
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create("https://httpbin.org/post"))
+                    .uri(URI.create("url"))
                     .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                     .build();
 
