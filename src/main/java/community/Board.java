@@ -193,7 +193,7 @@ public class Board {
         System.out.println("File config saved to config.json");
 
         // Creating user.properties file if it doesn't already exist
-        File propertiesFile = new File(userPropsPath + "\\user.properties");
+        File propertiesFile = new File(userPropsPath + "/user.properties");
         if (!propertiesFile.exists()){
             try {
                 boolean created = propertiesFile.createNewFile();
