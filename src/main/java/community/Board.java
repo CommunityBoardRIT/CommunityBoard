@@ -41,7 +41,7 @@ public class Board {
         // Should include checking if the users.properties file exists; currently throws error
 
         // check for config file
-        String content = null;
+        String content;
         try {
             content = new String(Files.readAllBytes(Paths.get("config.json")));
         } catch (IOException e) {
