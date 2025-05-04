@@ -1,4 +1,4 @@
-package community;
+package community.auth;
 
 public enum Perm {
     READ,

@@ -1,5 +1,8 @@
 package community;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import community.auth.Perm;
 import org.apache.commons.net.ftp.FTP;
 import org.apache.commons.net.ftp.FTPClient;
 import org.apache.commons.net.ftp.FTPFile;
@@ -60,38 +63,42 @@ public class BoardCLI {
         return tokens.toArray(new String[0]);
     }
 
-    public boolean permission_request(Perm operation){
+    public boolean permission_request(Perm operation, String path){
         var values = new HashMap<String, String>() {{
             put("username", username);
-            put("password", password);
-            put("operation", String.valueOf(operation));
+            put("operation", operation.name());
+            put("path", path);
         }};
 
-        Gson gson = new Gson();
-        String requestBody = gson.toJson(values);
+        ObjectMapper mapper = new ObjectMapper();
 
         try {
-            HttpClient client = HttpClient.newHttpClient();
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create("url"))
-                    .POST(HttpRequest.BodyPublishers.ofString(requestBody))
-                    .build();
+            String json = mapper.writeValueAsString(values);
+            try {
+                HttpClient client = HttpClient.newHttpClient();
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create("http://localhost:9000/check"))
+                        .POST(HttpRequest.BodyPublishers.ofString(json))
+                        .build();
 
-            HttpResponse<String> response = client.send(request,
-                    HttpResponse.BodyHandlers.ofString());
+                HttpResponse<String> response = client.send(request,
+                        HttpResponse.BodyHandlers.ofString());
 
-            System.out.println(response.body());
-            if (response.statusCode() == 200){
-                return true;
+                System.out.println(response.body());
+                if (response.statusCode() == 200){
+                    return true;
+                }
+                else {
+                    return false;
+                }
+            } catch (IOException | InterruptedException e) {
+                throw new RuntimeException(e);
             }
-            else {
-                return false;
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        } catch (InterruptedException e) {
+        } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }
+
+
     }
 
     public void commandLoop() {
@@ -126,6 +133,7 @@ public class BoardCLI {
                 }
                 String[] tokens = tokenizeCommand(input);
                 String command = tokens[0].toLowerCase();
+                Perm op;
 
                 switch (command) {
                     case "l" -> {
@@ -170,46 +178,58 @@ public class BoardCLI {
                         ftpClient.removeDirectory(tokens[1]);
                     }
                     case "u" -> {
-                        if (tokens.length < 3){
+                        op = Perm.WRITE;
+                        if (tokens.length < 3) {
                             System.out.println("Command usage: u {localFilePath} {remoteFilePath}");
                             System.out.println("Example: " + "u \"C:\\Users\\Tristen\\Downloads\\pthreads\" \"pthreads\"");
                         }
-
                         else{
                             String localFilePath = tokens[1];
                             String fileName = tokens[2];
 
-                            try (FileInputStream inputStream = new FileInputStream(localFilePath)) {
-                                boolean uploaded = ftpClient.storeFile(fileName, inputStream);
-                                System.out.println("REPLY: " + ftpClient.getReplyString());
-                                if (uploaded) {
-                                    System.out.println("File uploaded successfully.");
-                                } else {
-                                    System.err.println("File upload failed.");
+                            if (!permission_request(op, fileName)) {
+                                System.err.println("Permission denied for " + op + " on " + fileName);
+                            }
+
+                            else{
+                                try (FileInputStream inputStream = new FileInputStream(localFilePath)) {
+                                    boolean uploaded = ftpClient.storeFile(fileName, inputStream);
+                                    System.out.println("REPLY: " + ftpClient.getReplyString());
+                                    if (uploaded) {
+                                        System.out.println("File uploaded successfully.");
+                                    } else {
+                                        System.err.println("File upload failed.");
+                                    }
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                    return;
                                 }
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                                return;
                             }
                         }
                     }
 
                     case "r" -> {
+                        op = Perm.READ;
                         if (tokens.length < 3){
                             System.out.println("Command usage: r {remoteFilePath} {localFilePath}");
                             System.out.println("Example: " + "\"pthreads\" \"C:\\Users\\Tristen\\Downloads\\pthreads\"");
                         }
-                        else{
-                            OutputStream outputStream = new BufferedOutputStream(new FileOutputStream(tokens[2]));
-                            boolean success = ftpClient.retrieveFile(tokens[1], outputStream);
-                            outputStream.close();
 
 
-                            if (success) {
-                                System.out.println("File has been downloaded successfully.");
-                            }
-                            else{
-                                System.out.println("Download failure.");
+                        else {
+                            if (!permission_request(op, tokens[1])) {
+                                System.err.println("Permission denied for " + op + " on " + tokens[1]);
+                            } else {
+                                OutputStream outputStream = new BufferedOutputStream(new FileOutputStream(tokens[2]));
+                                boolean success = ftpClient.retrieveFile(tokens[1], outputStream);
+                                outputStream.close();
+
+
+                                if (success) {
+                                    System.out.println("File has been downloaded successfully.");
+                                } else {
+                                    System.out.println("Download failure.");
+                                }
                             }
                         }
 

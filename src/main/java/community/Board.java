@@ -3,6 +3,10 @@ package community;
 import com.fasterxml.jackson.core.exc.StreamReadException;
 import com.fasterxml.jackson.databind.DatabindException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sun.net.httpserver.HttpServer;
+import community.auth.Perm;
+import community.auth.PermissionHandler;
+import community.auth.PermissionService;
 import community.json.FileConfig;
 import org.apache.ftpserver.FtpServer;
 import org.apache.ftpserver.FtpServerFactory;
@@ -17,11 +21,13 @@ import org.json.JSONObject;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executors;
 
 public class Board {
 
@@ -35,6 +41,7 @@ public class Board {
 
     public ObjectMapper objectMapper;
     String userPropertiesPath;
+    PermissionService permissionService;
     public Board() throws FtpException {
         groupCache = new ArrayList<>();
         objectMapper = new ObjectMapper();
@@ -63,6 +70,30 @@ public class Board {
         server = serverFactory.createServer();
 
         createAdmin("admin", "password");
+        ArrayList<Perm> permissions = new ArrayList<>();
+        permissions.add(Perm.READ);
+        permissions.add(Perm.WRITE);
+        Group newGroup = createGroup("swagger", "", permissions);
+        newGroup.addUser("admin");
+        saveGroupCache();
+
+        loadPermissions();
+        permissionService = new PermissionService(groupCache);
+
+        try {
+            startPermissionEndpoint(9000);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+    }
+
+    private void startPermissionEndpoint(int port) throws IOException {
+        HttpServer http = HttpServer.create(new InetSocketAddress(port), 0);
+        http.createContext("/check", new PermissionHandler(permissionService));
+        http.setExecutor(Executors.newCachedThreadPool());
+        http.start();
+        System.out.println("Permission service listening on http://localhost:" + port + "/check");
     }
 
     public void createUser(String user, String password) throws FtpException {
@@ -87,11 +118,27 @@ public class Board {
         System.out.println("Admin account created successfully: " + user + ":" + password);
     }
 
-    public void createGroup(String name, String defaultDirectory, List<Perm> perms){
+    public Group createGroup(String name, String defaultDirectory, List<Perm> perms){
         Group group = new Group(name);
         group.addPermissions(defaultDirectory, perms);
-        group.save();
         groupCache.add(group);
+
+        try {
+            objectMapper.writerWithDefaultPrettyPrinter()
+                    .writeValue(new File("groupConfig.json"), groupCache);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return group;
+    }
+
+    public void saveGroupCache(){
+        try {
+            objectMapper.writerWithDefaultPrettyPrinter()
+                    .writeValue(new File("groupConfig.json"), groupCache);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public void loadPermissions(){
@@ -100,9 +147,8 @@ public class Board {
             objects = objectMapper.readValue(new File("groupConfig.json"),
                     objectMapper.getTypeFactory().constructCollectionType(List.class, Group.class));
             objects.forEach(System.out::println);
-        } catch (StreamReadException e) {
-            throw new RuntimeException(e);
-        } catch (DatabindException e) {
+            groupCache = objects;
+        } catch (StreamReadException | DatabindException e) {
             throw new RuntimeException(e);
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -161,5 +207,6 @@ public class Board {
         Board board = new Board();
 
         board.startServer();
+
     }
 }

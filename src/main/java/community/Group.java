@@ -1,9 +1,12 @@
 package community;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import community.auth.Perm;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -19,6 +22,13 @@ public class Group {
 
     /** users inside the group **/
     private List<String> users;
+
+    // no-arg constructor for Jackson
+    public Group() {
+        this.name = "";
+        this.permissions = new HashMap<>();
+        this.users = new ArrayList<>();
+    }
     public Group(String name){
 
         this.name = name;
@@ -42,13 +52,19 @@ public class Group {
         permissions.put(directory, perms);
     }
 
-    public void removePermission(String directory, Perm perm){
-        permissions.remove(directory, perm);
+    public void removePermission(String dir, Perm perm) {
+        List<Perm> list = permissions.get(dir);
+        if (list != null) {
+            list.remove(perm);
+            if (list.isEmpty()) permissions.remove(dir);
+        }
     }
 
-    public void removePermissions(String directory, List<Perm> perms){
-        for (int i = 0; i < perms.size(); i++){
-            permissions.remove(directory, perms.get(i));
+    public void removePermissions(String dir, List<Perm> permsToRemove) {
+        List<Perm> list = permissions.get(dir);
+        if (list != null) {
+            list.removeAll(permsToRemove);
+            if (list.isEmpty()) permissions.remove(dir);
         }
     }
 
@@ -64,15 +80,30 @@ public class Group {
         users.remove(username);
     }
 
-    public void save(){
-        ObjectMapper mapper = new ObjectMapper();
-        // save arguments in json file
-        try {
-            mapper.writerWithDefaultPrettyPrinter().writeValue(new File("groupConfig.json"), this);
-        } catch (IOException e) {
-            System.out.println("Error writing to JSON: " + e);
-            throw new RuntimeException(e);
+    public boolean isAllowed(Perm op, String resourcePath) {
+        // normalize
+        Path resource = Paths.get(resourcePath).normalize();
+
+        // find the longest matching directory key
+        String bestMatch = null;
+        for (String dirKey : permissions.keySet()) {
+            Path dir = Paths.get(dirKey).normalize();
+            if (resource.startsWith(dir)) {
+                if (bestMatch == null ||
+                        dir.toString().length() > Paths.get(bestMatch).toString().length())
+                {
+                    bestMatch = dir.toString();
+                }
+            }
         }
+
+        if (bestMatch == null) {
+            // no directory rule applies
+            return false;
+        }
+
+        List<Perm> allowed = permissions.get(bestMatch);
+        return allowed != null && allowed.contains(op);
     }
 
 }
