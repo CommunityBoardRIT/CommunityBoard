@@ -2,12 +2,21 @@ package community;
 
 import org.apache.commons.net.ftp.FTPClient;
 import org.apache.commons.net.ftp.FTPFile;
+import com.google.gson.Gson;
 
 import java.io.*;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.util.HashMap;
 import java.util.Scanner;
 
 public class BoardCLI {
     FTPClient ftpClient;
+
+    String username;
+    String password;
 
     public BoardCLI() {
         ftpClient = new FTPClient();
@@ -25,6 +34,40 @@ public class BoardCLI {
         return true;
     }
 
+    public boolean permission_request(Perm operation){
+        var values = new HashMap<String, String>() {{
+            put("username", username);
+            put("password", password);
+            put("operation", String.valueOf(operation));
+        }};
+
+        Gson gson = new Gson();
+        String requestBody = gson.toJson(values);
+
+        try {
+            HttpClient client = HttpClient.newHttpClient();
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://httpbin.org/post"))
+                    .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+                    .build();
+
+            HttpResponse<String> response = client.send(request,
+                    HttpResponse.BodyHandlers.ofString());
+
+            System.out.println(response.body());
+            if (response.statusCode() == 200){
+                return true;
+            }
+            else {
+                return false;
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public void commandLoop() {
         Scanner scanner = new Scanner(System.in);
 
@@ -35,12 +78,12 @@ public class BoardCLI {
             while (!loggedIn) {
                 System.out.println("Please enter your credentials.");
                 System.out.print("Username: ");
-                String user = scanner.nextLine().trim();
+                username = scanner.nextLine().trim();
                 System.out.print("Password: ");
-                String password = scanner.nextLine().trim();
+                password = scanner.nextLine().trim();
 
-                System.out.println("username: " + user + " password: " + password);
-                loggedIn = login(user, password);
+                System.out.println("username: " + username + " password: " + password);
+                loggedIn = login(username, password);
 
                 if (!loggedIn) {
                     System.out.println("Login failed. Please try again.");
